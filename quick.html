@@ -1,0 +1,528 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>快速点击 - 张峰恺原创</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://cdn.jsdelivr.net/npm/font-awesome@4.7.0/css/css/font-awesome.min.css" rel="stylesheet">
+    
+    <!-- 配置Tailwind自定义颜色和字体 -->
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    colors: {
+                        primary: '#8B5CF6',
+                        secondary: '#3B82F6',
+                        success: '#10B981',
+                        warning: '#F59E0B',
+                        danger: '#EF4444',
+                    },
+                    fontFamily: {
+                        game: ['"Comic Sans MS"', '"Arial Rounded MT Bold"', 'sans-serif'],
+                    },
+                }
+            }
+        }
+    </script>
+    
+    <style type="text/tailwindcss">
+        @layer utilities {
+            .content-auto {
+                content-visibility: auto;
+            }
+            .game-btn {
+                @apply rounded-lg transition-all duration-200 transform hover:scale-105 active:scale-95 shadow-lg cursor-pointer;
+            }
+            .pulse {
+                animation: pulse 1s infinite;
+            }
+            .bounce-in {
+                animation: bounceIn 0.5s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+            }
+            .slide-up {
+                animation: slideUp 0.3s ease-out;
+            }
+            .shake {
+                animation: shake 0.5s cubic-bezier(.36,.07,.19,.97) both;
+            }
+            .fade-out {
+                animation: fadeOut 0.3s ease-out forwards;
+            }
+            @keyframes pulse {
+                0%, 100% { transform: scale(1); }
+                50% { transform: scale(1.05); }
+            }
+            @keyframes bounceIn {
+                0% { transform: scale(0.3); opacity: 0; }
+                50% { transform: scale(1.05); }
+                70% { transform: scale(0.9); }
+                100% { transform: scale(1); opacity: 1; }
+            }
+            @keyframes slideUp {
+                from { transform: translateY(20px); opacity: 0; }
+                to { transform: translateY(0); opacity: 1; }
+            }
+            @keyframes shake {
+                10%, 90% { transform: translateX(-1px); }
+                20%, 80% { transform: translateX(2px); }
+                30%, 50%, 70% { transform: translateX(-3px); }
+                40%, 60% { transform: translateX(3px); }
+            }
+            @keyframes fadeOut {
+                from { opacity: 1; }
+                to { opacity: 0; }
+            }
+            .progress-bar {
+                transition: width 0.1s linear;
+            }
+        }
+    </style>
+</head>
+<body class="bg-gradient-to-br from-gray-900 to-gray-800 min-h-screen font-game text-white overflow-x-hidden">
+    <div class="container mx-auto px-4 py-6 max-w-md h-screen flex flex-col">
+        <!-- 游戏标题和状态 -->
+        <header class="text-center mb-2 slide-up">
+            <h1 class="text-[clamp(1.5rem,5vw,2.2rem)] font-bold text-transparent bg-clip-text bg-gradient-to-r from-primary to-secondary mb-1">
+                快速点击
+            </h1>
+            <p class="text-gray-300 text-sm mb-3">张峰恺原创</p>
+            
+            <div class="flex justify-between items-center bg-gray-800/50 rounded-full p-1 mb-3 backdrop-blur-sm">
+                <div class="flex-1 text-center">
+                    <span class="text-xs text-gray-400">等级</span>
+                    <div id="level" class="text-lg font-bold text-warning">1</div>
+                </div>
+                <div class="h-8 w-px bg-gray-700"></div>
+                <div class="flex-1 text-center">
+                    <span class="text-xs text-gray-400">分数</span>
+                    <div id="score" class="text-lg font-bold text-success">0</div>
+                </div>
+                <div class="h-8 w-px bg-gray-700"></div>
+                <div class="flex-1 text-center">
+                    <span class="text-xs text-gray-400">最高</span>
+                    <div id="high-score" class="text-lg font-bold text-primary">0</div>
+                </div>
+            </div>
+            
+            <!-- 时间进度条 -->
+            <div class="h-2 bg-gray-700/50 rounded-full overflow-hidden mb-4">
+                <div id="time-bar" class="progress-bar h-full bg-gradient-to-r from-success to-warning w-full"></div>
+            </div>
+        </header>
+        
+        <!-- 游戏区域 -->
+        <main class="flex-grow flex flex-col items-center justify-center relative">
+            <!-- 开始界面 -->
+            <div id="start-screen" class="text-center bounce-in">
+                <div class="w-32 h-32 bg-primary/20 rounded-full flex items-center justify-center mb-6">
+                    <i class="fa fa-hand-pointer-o text-5xl text-primary"></i>
+                </div>
+                <h2 class="text-2xl font-bold mb-4">快速点击!</h2>
+                <p class="text-gray-300 mb-8 px-4">根据提示，在时间结束前点击正确的颜色或形状</p>
+                <button id="start-btn" class="bg-gradient-to-r from-primary to-secondary text-white font-bold py-3 px-8 rounded-full shadow-lg hover:shadow-primary/30 transition-all duration-300 transform hover:scale-105 active:scale-95">
+                    开始游戏
+                </button>
+            </div>
+            
+            <!-- 游戏提示 -->
+            <div id="game-prompt" class="hidden absolute top-0 left-1/2 transform -translate-x-1/2 -translate-y-full bg-gray-800/80 backdrop-blur-sm px-4 py-2 rounded-full text-center slide-up">
+                <p id="prompt-text" class="font-bold">点击 <span class="text-red-500">红色</span>!</p>
+            </div>
+            
+            <!-- 游戏板 -->
+            <div id="game-board" class="hidden grid grid-cols-2 gap-4 w-full max-w-xs">
+                <!-- 游戏元素将通过JS动态生成 -->
+            </div>
+            
+            <!-- 游戏结束界面 -->
+            <div id="game-over" class="hidden text-center bounce-in">
+                <div class="mb-4">
+                    <i class="fa fa-trophy text-5xl text-warning mb-2"></i>
+                    <p class="text-gray-400">游戏结束</p>
+                    <p class="text-2xl font-bold text-white mb-1">得分: <span id="final-score">0</span></p>
+                    <p class="text-sm text-gray-400">等级: <span id="final-level">1</span></p>
+                </div>
+                <button id="restart-btn" class="bg-gradient-to-r from-primary to-secondary text-white font-bold py-3 px-8 rounded-full shadow-lg hover:shadow-primary/30 transition-all duration-300 transform hover:scale-105 active:scale-95">
+                    再玩一次
+                </button>
+            </div>
+            
+            <!-- 临时反馈信息 -->
+            <div id="feedback" class="hidden absolute bottom-10 text-xl font-bold"></div>
+        </main>
+        
+        <!-- 游戏底部 -->
+        <footer class="text-center text-gray-500 text-xs py-4 slide-up">
+            <p>反应速度决定一切</p>
+        </footer>
+    </div>
+
+    <script>
+        // 游戏配置和状态
+        const gameConfig = {
+            shapes: ['circle', 'square', 'triangle', 'diamond'],
+            colors: [
+                { name: '红色', class: 'bg-red-500', value: 'red' },
+                { name: '蓝色', class: 'bg-blue-500', value: 'blue' },
+                { name: '绿色', class: 'bg-green-500', value: 'green' },
+                { name: '黄色', class: 'bg-yellow-500', value: 'yellow' },
+                { name: '紫色', class: 'bg-purple-500', value: 'purple' },
+                { name: '粉色', class: 'bg-pink-500', value: 'pink' }
+            ],
+            gameModes: ['color', 'shape', 'color_and_shape'], // 颜色模式、形状模式、颜色+形状模式
+            baseTime: 3000, // 基础时间(毫秒)
+            timeReduction: 100, // 每级减少的时间
+            minTime: 800, // 最小时间
+            itemsPerLevel: 4 // 每级显示的项目数量
+        };
+        
+        const gameState = {
+            level: 1,
+            score: 0,
+            highScore: 0,
+            isPlaying: false,
+            currentTarget: null,
+            currentMode: 'color',
+            timer: null,
+            timeLeft: 0
+        };
+        
+        // DOM元素
+        const startScreen = document.getElementById('start-screen');
+        const gameBoard = document.getElementById('game-board');
+        const gamePrompt = document.getElementById('game-prompt');
+        const promptText = document.getElementById('prompt-text');
+        const gameOverScreen = document.getElementById('game-over');
+        const finalScore = document.getElementById('final-score');
+        const finalLevel = document.getElementById('final-level');
+        const levelDisplay = document.getElementById('level');
+        const scoreDisplay = document.getElementById('score');
+        const highScoreDisplay = document.getElementById('high-score');
+        const timeBar = document.getElementById('time-bar');
+        const feedback = document.getElementById('feedback');
+        const startBtn = document.getElementById('start-btn');
+        const restartBtn = document.getElementById('restart-btn');
+        
+        // 初始化高分
+        function initHighScore() {
+            const savedScore = localStorage.getItem('quickTapHighScore');
+            if (savedScore) {
+                gameState.highScore = parseInt(savedScore);
+                highScoreDisplay.textContent = gameState.highScore;
+            }
+        }
+        
+        // 更新高分
+        function updateHighScore() {
+            if (gameState.score > gameState.highScore) {
+                gameState.highScore = gameState.score;
+                highScoreDisplay.textContent = gameState.highScore;
+                localStorage.setItem('quickTapHighScore', gameState.highScore);
+            }
+        }
+        
+        // 开始游戏
+        function startGame() {
+            // 重置游戏状态
+            gameState.level = 1;
+            gameState.score = 0;
+            gameState.isPlaying = true;
+            
+            // 更新UI
+            startScreen.classList.add('hidden');
+            gameOverScreen.classList.add('hidden');
+            gameBoard.classList.remove('hidden');
+            gamePrompt.classList.remove('hidden');
+            levelDisplay.textContent = gameState.level;
+            scoreDisplay.textContent = gameState.score;
+            
+            // 开始第一轮
+            nextRound();
+        }
+        
+        // 下一轮
+        function nextRound() {
+            // 每5级切换一次游戏模式
+            if (gameState.level % 5 === 0) {
+                const modeIndex = Math.floor(Math.random() * gameConfig.gameModes.length);
+                gameState.currentMode = gameConfig.gameModes[modeIndex];
+            }
+            
+            // 计算当前轮次的可用时间
+            const currentTime = Math.max(
+                gameConfig.baseTime - (gameState.level - 1) * gameConfig.timeReduction,
+                gameConfig.minTime
+            );
+            gameState.timeLeft = currentTime;
+            
+            // 清空游戏板
+            gameBoard.innerHTML = '';
+            
+            // 生成游戏元素
+            generateGameItems();
+            
+            // 开始计时
+            startTimer(currentTime);
+        }
+        
+        // 生成游戏元素
+        function generateGameItems() {
+            const itemsCount = gameConfig.itemsPerLevel;
+            const usedColors = new Set();
+            const usedShapes = new Set();
+            const items = [];
+            
+            // 随机选择目标元素
+            const targetColorIndex = Math.floor(Math.random() * gameConfig.colors.length);
+            const targetShapeIndex = Math.floor(Math.random() * gameConfig.shapes.length);
+            
+            // 根据游戏模式设置目标和提示
+            if (gameState.currentMode === 'color') {
+                gameState.currentTarget = {
+                    type: 'color',
+                    value: gameConfig.colors[targetColorIndex].value
+                };
+                promptText.innerHTML = `点击 <span class="${gameConfig.colors[targetColorIndex].class}">${gameConfig.colors[targetColorIndex].name}</span>!`;
+            } else if (gameState.currentMode === 'shape') {
+                gameState.currentTarget = {
+                    type: 'shape',
+                    value: gameConfig.shapes[targetShapeIndex]
+                };
+                promptText.textContent = `点击 ${getShapeName(gameConfig.shapes[targetShapeIndex])}!`;
+            } else { // color_and_shape
+                gameState.currentTarget = {
+                    type: 'both',
+                    color: gameConfig.colors[targetColorIndex].value,
+                    shape: gameConfig.shapes[targetShapeIndex]
+                };
+                promptText.innerHTML = `点击 <span class="${gameConfig.colors[targetColorIndex].class}">${gameConfig.colors[targetColorIndex].name}</span>的${getShapeName(gameConfig.shapes[targetShapeIndex])}!`;
+            }
+            
+            // 确保目标元素被包含在内
+            items.push({
+                color: gameConfig.colors[targetColorIndex],
+                shape: gameConfig.shapes[targetShapeIndex]
+            });
+            usedColors.add(targetColorIndex);
+            usedShapes.add(targetShapeIndex);
+            
+            // 生成其他随机元素
+            while (items.length < itemsCount) {
+                let colorIndex, shapeIndex;
+                
+                // 确保颜色不重复
+                do {
+                    colorIndex = Math.floor(Math.random() * gameConfig.colors.length);
+                } while (usedColors.size < gameConfig.colors.length && usedColors.has(colorIndex));
+                
+                // 确保形状不重复
+                do {
+                    shapeIndex = Math.floor(Math.random() * gameConfig.shapes.length);
+                } while (usedShapes.size < gameConfig.shapes.length && usedShapes.has(shapeIndex));
+                
+                // 添加到已使用集合
+                usedColors.add(colorIndex);
+                usedShapes.add(shapeIndex);
+                
+                // 添加到项目列表
+                items.push({
+                    color: gameConfig.colors[colorIndex],
+                    shape: gameConfig.shapes[shapeIndex]
+                });
+            }
+            
+            // 随机排序
+            shuffleArray(items);
+            
+            // 创建DOM元素
+            items.forEach((item, index) => {
+                const itemElement = createGameItem(item, index);
+                gameBoard.appendChild(itemElement);
+            });
+        }
+        
+        // 创建游戏元素
+        function createGameItem(item, index) {
+            const container = document.createElement('div');
+            container.className = 'game-btn flex items-center justify-center h-32 md:h-40';
+            
+            // 根据形状创建不同的元素
+            let shapeElement;
+            
+            switch (item.shape) {
+                case 'circle':
+                    shapeElement = document.createElement('div');
+                    shapeElement.className = `w-24 h-24 rounded-full ${item.color.class} flex items-center justify-center`;
+                    break;
+                case 'square':
+                    shapeElement = document.createElement('div');
+                    shapeElement.className = `w-24 h-24 ${item.color.class} flex items-center justify-center`;
+                    break;
+                case 'triangle':
+                    shapeElement = document.createElement('div');
+                    shapeElement.className = `${item.color.class}`;
+                    shapeElement.style.width = '0';
+                    shapeElement.style.height = '0';
+                    shapeElement.style.borderLeft = '12vw solid transparent';
+                    shapeElement.style.borderRight = '12vw solid transparent';
+                    shapeElement.style.borderBottom = '24vw solid currentColor';
+                    shapeElement.style.maxWidth = '24px';
+                    shapeElement.style.maxHeight = '24px';
+                    break;
+                case 'diamond':
+                    shapeElement = document.createElement('div');
+                    shapeElement.className = `${item.color.class}`;
+                    shapeElement.style.width = '24vw';
+                    shapeElement.style.height = '24vw';
+                    shapeElement.style.transform = 'rotate(45deg)';
+                    shapeElement.style.maxWidth = '24px';
+                    shapeElement.style.maxHeight = '24px';
+                    break;
+            }
+            
+            container.appendChild(shapeElement);
+            
+            // 添加点击事件
+            container.addEventListener('click', () => handleItemClick(item));
+            
+            // 触摸设备优化
+            container.addEventListener('touchstart', (e) => {
+                e.preventDefault();
+                handleItemClick(item);
+            });
+            
+            return container;
+        }
+        
+        // 处理元素点击
+        function handleItemClick(item) {
+            if (!gameState.isPlaying) return;
+            
+            // 清除计时器
+            clearInterval(gameState.timer);
+            
+            // 检查是否正确
+            let isCorrect = false;
+            
+            if (gameState.currentTarget.type === 'color') {
+                isCorrect = item.color.value === gameState.currentTarget.value;
+            } else if (gameState.currentTarget.type === 'shape') {
+                isCorrect = item.shape === gameState.currentTarget.value;
+            } else {
+                isCorrect = item.color.value === gameState.currentTarget.color && 
+                           item.shape === gameState.currentTarget.shape;
+            }
+            
+            // 显示反馈
+            showFeedback(isCorrect);
+            
+            if (isCorrect) {
+                // 正确，加分进级
+                const points = Math.floor(gameState.timeLeft / 100);
+                gameState.score += points;
+                gameState.level++;
+                
+                scoreDisplay.textContent = gameState.score;
+                levelDisplay.textContent = gameState.level;
+                
+                // 短暂延迟后进入下一轮
+                setTimeout(nextRound, 800);
+            } else {
+                // 错误，游戏结束
+                endGame();
+            }
+        }
+        
+        // 显示反馈信息
+        function showFeedback(isCorrect) {
+            feedback.textContent = isCorrect ? '正确!' : '错误!';
+            feedback.className = `absolute bottom-10 text-xl font-bold bounce-in ${isCorrect ? 'text-success' : 'text-danger'}`;
+            feedback.classList.remove('hidden');
+            
+            setTimeout(() => {
+                feedback.classList.add('fade-out');
+                setTimeout(() => {
+                    feedback.classList.add('hidden');
+                    feedback.classList.remove('fade-out');
+                }, 300);
+            }, 500);
+        }
+        
+        // 开始计时器
+        function startTimer(totalTime) {
+            timeBar.style.width = '100%';
+            gameState.timeLeft = totalTime;
+            
+            gameState.timer = setInterval(() => {
+                gameState.timeLeft -= 50;
+                const percentage = (gameState.timeLeft / totalTime) * 100;
+                timeBar.style.width = `${percentage}%`;
+                
+                // 时间快用完时变色警告
+                if (percentage < 30) {
+                    timeBar.className = 'progress-bar h-full bg-danger w-full';
+                } else {
+                    timeBar.className = 'progress-bar h-full bg-gradient-to-r from-success to-warning w-full';
+                }
+                
+                // 时间用完
+                if (gameState.timeLeft <= 0) {
+                    clearInterval(gameState.timer);
+                    showFeedback(false);
+                    setTimeout(endGame, 800);
+                }
+            }, 50);
+        }
+        
+        // 游戏结束
+        function endGame() {
+            gameState.isPlaying = false;
+            updateHighScore();
+            
+            // 更新UI
+            gameBoard.classList.add('hidden');
+            gamePrompt.classList.add('hidden');
+            gameOverScreen.classList.remove('hidden');
+            finalScore.textContent = gameState.score;
+            finalLevel.textContent = gameState.level - 1;
+        }
+        
+        // 工具函数：打乱数组顺序
+        function shuffleArray(array) {
+            for (let i = array.length - 1; i > 0; i--) {
+                const j = Math.floor(Math.random() * (i + 1));
+                [array[i], array[j]] = [array[j], array[i]];
+            }
+            return array;
+        }
+        
+        // 工具函数：获取形状中文名称
+        function getShapeName(shape) {
+            const shapeNames = {
+                'circle': '圆形',
+                'square': '正方形',
+                'triangle': '三角形',
+                'diamond': '菱形'
+            };
+            return shapeNames[shape] || shape;
+        }
+        
+        // 事件监听
+        startBtn.addEventListener('click', startGame);
+        restartBtn.addEventListener('click', startGame);
+        
+        // 防止触摸设备上的默认行为
+        document.addEventListener('touchmove', (e) => {
+            if (gameState.isPlaying) {
+                e.preventDefault();
+            }
+        }, { passive: false });
+        
+        // 初始化
+        initHighScore();
+    </script>
+</body>
+</html>
+    
